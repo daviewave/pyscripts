@@ -1,4 +1,4 @@
-import os, subprocess, sys, pyaml, shlex
+import os, subprocess, sys, pyaml, shlex, pprint
 from typing_extensions import List, Dict
 from os import _Environ
 
@@ -146,8 +146,150 @@ class CmdUtils:
         return len(sys.argv) == 1
 
 
-class PrintUtils:
-    pass
+class IOUtils:
+    """for consitent, easily customizable printing in scripts"""
+
+    COLORS = {
+        "purple": "\033[38;5;54m",
+        "lpurple": "\033[95m",
+        "lblue": "\033[94m",
+        "blue": "\033[38;5;21m",
+        "lorange": "\033[38;5;214m",
+        "orange": "\033[38;5;166m",
+        "lgreen": "\033[92m",
+        "green": "\033[32m",
+        "bred": "\033[91m",
+        "red": "\033[31m",
+        "yellow": "\033[93m",
+        "cyan": "\033[96m",
+        "gray": "\033[90m",
+        "black": "\033[30m",
+        "RESET": "\033[0m",
+    }
+
+    @staticmethod
+    def _apply_color(text: str, color: str = None) -> str:
+        if color and color in IOUtils.COLORS:
+            return IOUtils.COLORS[color] + text + IOUtils.COLORS["RESET"]
+        return text
+
+    def start_msg(self, message, curr_status, subfunction=False, prev_line=False):
+        if subfunction:
+            print(
+                f"\t{IOUtils._apply_color(f'({curr_status})', 'purple')} {IOUtils._apply_color(message, 'gray')}... ",
+                end="",
+            )
+        else:
+            print(
+                f"{IOUtils._apply_color(f'{curr_status}', 'blue')} {IOUtils._apply_color(message, 'black')}... ",
+                end="" if prev_line else "\n",
+            )
+
+    def done(
+        self,
+        upper=True,
+        newline=False,
+    ):
+        done = "done."
+        if upper:
+            done = "Done."
+        colored_done = IOUtils._apply_color(done, "green")
+
+        print(colored_done)
+        if newline:
+            print("---------\n")
+
+    def warning_msg(
+        self,
+        message,
+        upper=False,
+        add_spacing=False,
+        prompt_continue=False,
+        prev_line=False,
+    ):
+        msg_pretext = "WARNING!" if upper else "(warning) ->"
+        full_msg = f"{IOUtils._apply_color(msg_pretext, 'orange')} {IOUtils._apply_color(message, 'orange')}"
+
+        if add_spacing:
+            full_msg = f"\n{full_msg}\n"
+
+        if prev_line:
+            print("")
+
+        print(full_msg)
+
+        if prompt_continue:
+            input("Do you want to continue? (y/n) ")
+            if not input().lower() == "y":
+                sys.exit(1)
+
+    def info_msg(self, message, upper=False, add_spacing=False):
+        msg_pretext = "INFO:" if upper else "(info) ->"
+        full_msg = f"{IOUtils._apply_color(msg_pretext, 'blue')} {IOUtils._apply_color(message, 'gray')}"
+
+        if add_spacing:
+            full_msg = f"\n{full_msg}\n"
+
+        print(full_msg)
+
+    def success_msg(self, message, result_var=None):
+        msg_pretext = IOUtils._apply_color("success!", "green")
+        full_msg = f"{msg_pretext} {IOUtils._apply_color(message, 'green')}"
+
+        def format_result_output(result_var):
+            if result_var:
+                if type(result_var) == str and (
+                    os.path.isfile(result_var) or os.path.isdir(result_var)
+                ):
+                    return f"\t-> results saved to: {result_var}"
+                elif type(result_var) == str:
+                    return f"-> output:\n\t {result_var}"
+                elif type(result_var) == list:
+                    if type(result_var[0]) != dict:
+                        return f"-> output:\n {pyaml.dump(result_var)}"
+                    else:
+                        print("-> output:")
+                        pprint.pprint(result_var, indent=4)
+                elif type(result_var) == dict:
+                    print("-> output:")
+                    pprint.pprint(result_var, indent=4)
+
+        print("")
+        print(full_msg)
+        format_result_output(result_var)
+        print("==========================")
+
+    def error_msg(
+        self, message, error, upper=True, raise_exception=False, prompt_continue=False
+    ):
+        msg_pretext = "\nERROR!" if upper else "(error) -->"
+        full_msg = f"{IOUtils._apply_color(msg_pretext, 'red')} {IOUtils._apply_color(message, 'bred')}"
+
+        print(full_msg)
+        if raise_exception:
+            raise Exception(error)
+
+        print(f"--> error:{str(error)}")
+        if prompt_continue:
+            input("Do you want to continue? (y/n) ")
+            if not input().lower() == "y":
+                sys.exit(1)
+
+
+# Example usage:
+if __name__ == "__main__":
+    IOUtils.start_print(1, "Initializing main process")
+    IOUtils.info_print("This is an informational message.")
+    IOUtils.warning_print("This is a warning!", prompt_continue=True)
+    IOUtils.done_print("done", uppercase=True)
+    # Demonstrate inline done_print (e.g., updating progress on the same line)
+    import time
+
+    for i in range(5):
+        IOUtils.done_print(f"Processing step {i+1}/5", inline=True)
+        time.sleep(1)
+    # End with a newline to ensure subsequent output is not overwritten.
+    print()
 
 
 class PromptUtils:
