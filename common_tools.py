@@ -5,147 +5,6 @@ from os import _Environ
 from collections import namedtuple
 
 
-class CmdUtils:
-    Result = namedtuple("Result", ["stdout", "stderr", "returncode"])
-
-    def build_result_tuple(self, result):
-        return self.Result(
-            stdout=result.stdout,
-            stderr=result.stderr,
-            returncode=result.returncode,
-        )
-
-    def run(
-        self,
-        cmd_list: List[str],
-        check=False,
-        use_console=False,
-        run_from=None,
-        time_out_after=None,
-        env=None,
-    ):
-        """simple run command with arg options"""
-        try:
-            result = subprocess.run(
-                cmd_list,
-                text=True,
-                check=check,
-                capture_output=not use_console,
-                cwd=run_from,
-                timeout=time_out_after,
-                env=env,
-            )
-            return self.build_result_tuple(result)
-        except Exception as e:
-            print(f"run command '{cmd_list}' failed with error:")
-            print(str(e))
-
-    def run_str(
-        self,
-        cmd_str: List[str],
-        check=False,
-        use_console=False,
-        run_from=None,
-        time_out_after=None,
-        env=None,
-    ):
-        """accepts a string as command argument (not safe), so precautions are taken with shlex.quote()"""
-        try:
-            secured_cmd = shlex.quote(cmd_str)
-            result = subprocess.run(
-                secured_cmd,
-                text=True,
-                check=check,
-                capture_output=not use_console,
-                cwd=run_from,
-                timeout=time_out_after,
-                env=env,
-            )
-            return self.build_result_tuple(result)
-
-        except Exception as e:
-            print(f"run shell command '{cmd_str}' failed with error:")
-            print(str(e))
-
-    def interactive(
-        self,
-        cmd_list: List[str],
-        executable: str,
-        connect_input=False,  # allows to connect to the the stdin (subprocess.PIPE)
-        get_output=False,  # allows to capture the output (subprocess.PIPE)
-        get_error=False,  # allows to capture the error (subprocess.PIPE)
-        run_from=None,
-        env=None,
-        use_bytes=False,
-        new_session=False,
-    ):
-        """uses subprocess.Popen() which allows for communication with the process as events happen"""
-        try:
-            process = subprocess.Popen(
-                cmd_list,
-                executable=executable,
-                text=not use_bytes,
-                stdin=subprocess.PIPE if connect_input == True else None,
-                stdout=subprocess.PIPE if get_output == True else None,
-                stderr=subprocess.PIPE if get_error == True else None,
-                cwd=run_from,
-                env=env,
-                start_new_session=new_session,
-            )
-            return process
-        except Exception as e:
-            print(f"interactive command '{cmd_list}' failed with error:")
-            print(str(e))
-
-    def call(
-        self,
-        cmd_list: List[str],
-        run_from=None,
-        time_out_after=None,
-        env=None,
-    ):
-        """runs a command but only the exit code can be returned to a variable"""
-        try:
-            return_code = subprocess.call(
-                cmd_list, cwd=run_from, timeout=time_out_after, env=env
-            )
-            return return_code
-        except Exception as e:
-            print(f"call command '{cmd_list}' failed with error:")
-            print(str(e))
-
-    def check_call(
-        self,
-        cmd_list: List[str],
-        run_from: str,  # dir to execute command
-        time_out_after: int,
-        env: _Environ[str],
-    ):
-        """same as call() but returns an Exception (like check arg in run()), runs a command but only the exit code can be returned to a variable"""
-
-        try:
-            return_code = subprocess.call(
-                cmd_list, cwd=run_from, timeout=time_out_after, env=env
-            )
-            return return_code
-        except Exception as e:
-            print(f"call command '{cmd_list}' failed with error:")
-            print(str(e))
-
-    def grep(self, grep_for: str, cmd_output: str):
-        try:
-            cmd = ["grep", grep_for]
-            result = subprocess.run(cmd, input=cmd_output)
-            return self.build_result_tuple(result)
-        except Exception as e:
-            print(f"failed to grep cmd output: '{cmd_output}' with error:")
-            print(str(e))
-
-    @staticmethod
-    def cmd_has_no_args():
-        return len(sys.argv) == 1
-
-
 class IOUtils:
     """for consitent, easily customizable printing in scripts"""
 
@@ -158,7 +17,7 @@ class IOUtils:
         "orange": "\033[38;5;166m",
         "lgreen": "\033[92m",
         "green": "\033[32m",
-        "bred": "\033[91m",
+        "lred": "\033[91m",
         "red": "\033[31m",
         "yellow": "\033[93m",
         "cyan": "\033[96m",
@@ -260,16 +119,22 @@ class IOUtils:
         print("==========================")
 
     def error_msg(
-        self, message, error, upper=True, raise_exception=False, prompt_continue=False
+        self,
+        message,
+        error=None,
+        upper=True,
+        raise_exception=False,
+        prompt_continue=False,
     ):
-        msg_pretext = "\nERROR!" if upper else "(error) -->"
-        full_msg = f"{IOUtils._apply_color(msg_pretext, 'red')} {IOUtils._apply_color(message, 'bred')}"
-
+        msg_pretext = "\nERROR!" if upper else "\n(error) -->"
+        full_msg = f"{IOUtils._apply_color(msg_pretext, 'red')} {IOUtils._apply_color(message, 'red')}"
         print(full_msg)
+
         if raise_exception:
             raise Exception(error)
 
-        print(f"--> error:{str(error)}")
+        if error:
+            print(f"--> error: {str(error if error else '')}")
         if prompt_continue:
             input("Do you want to continue? (y/n) ")
             if not input().lower() == "y":
@@ -282,8 +147,210 @@ class IOUtils:
         os.system("clear")
 
 
+io = IOUtils()
+
+
+class CmdUtils:
+    Result = namedtuple("Result", ["stdout", "stderr", "returncode"])
+
+    def build_result_tuple(self, result):
+        return self.Result(
+            stdout=result.stdout,
+            stderr=result.stderr,
+            returncode=result.returncode,
+        )
+
+    def run(
+        self,
+        cmd_list: List[str],
+        check=False,
+        use_console=False,
+        run_from=None,
+        time_out_after=None,
+        prompt_continue=False,
+        env=None,
+    ):
+        """simple run command with arg options"""
+        try:
+            result = subprocess.run(
+                cmd_list,
+                text=True,
+                capture_output=not use_console,
+                cwd=run_from,
+                timeout=time_out_after,
+                env=env,
+            )
+            return self.build_result_tuple(result)
+        except Exception as e:
+            io.error_msg(
+                "run command failed",
+                e,
+                raise_exception=check,
+                prompt_continue=prompt_continue,
+            )
+
+    def run_str(
+        self,
+        cmd_str: List[str],
+        check=False,
+        use_console=False,
+        run_from=None,
+        time_out_after=None,
+        prompt_continue=False,
+        env=None,
+    ):
+        """accepts a string as command argument (not safe), so precautions are taken with shlex.quote()"""
+        try:
+            secured_cmd = shlex.quote(cmd_str)
+            result = subprocess.run(
+                secured_cmd,
+                text=True,
+                capture_output=not use_console,
+                cwd=run_from,
+                timeout=time_out_after,
+                env=env,
+            )
+            return self.build_result_tuple(result)
+
+        except Exception as e:
+            io.error_msg(
+                "run_str command failed",
+                e,
+                raise_exception=check,
+                prompt_continue=prompt_continue,
+            )
+
+    def interactive(
+        self,
+        cmd_list: List[str],
+        executable: str,
+        connect_input=False,  # allows to connect to the the stdin (subprocess.PIPE)
+        get_output=False,  # allows to capture the output (subprocess.PIPE)
+        get_error=False,  # allows to capture the error (subprocess.PIPE)
+        run_from=None,
+        env=None,
+        use_bytes=False,
+        new_session=False,
+        raise_exception=False,
+        prompt_continue=False,
+    ):
+        """uses subprocess.Popen() which allows for communication with the process as events happen"""
+        try:
+            process = subprocess.Popen(
+                cmd_list,
+                executable=executable,
+                text=not use_bytes,
+                stdin=subprocess.PIPE if connect_input == True else None,
+                stdout=subprocess.PIPE if get_output == True else None,
+                stderr=subprocess.PIPE if get_error == True else None,
+                cwd=run_from,
+                env=env,
+                start_new_session=new_session,
+            )
+            return process
+        except Exception as e:
+            io.error_msg(
+                "run command failed",
+                e,
+                raise_exception=raise_exception,
+                prompt_continue=prompt_continue,
+            )
+            print(f"interactive command '{cmd_list}' failed with error:")
+            print(str(e))
+
+    def call(
+        self,
+        cmd_list: List[str],
+        run_from=None,
+        time_out_after=None,
+        env=None,
+    ):
+        """runs a command but only the exit code can be returned to a variable"""
+        try:
+            return_code = subprocess.call(
+                cmd_list, cwd=run_from, timeout=time_out_after, env=env
+            )
+            return return_code
+        except Exception as e:
+            print(f"call command '{cmd_list}' failed with error:")
+            print(str(e))
+
+    def check_call(
+        self,
+        cmd_list: List[str],
+        run_from: str,  # dir to execute command
+        time_out_after: int,
+        env: _Environ[str],
+    ):
+        """same as call() but returns an Exception (like check arg in run()), runs a command but only the exit code can be returned to a variable"""
+
+        try:
+            return_code = subprocess.call(
+                cmd_list, cwd=run_from, timeout=time_out_after, env=env
+            )
+            return return_code
+        except Exception as e:
+            print(f"call command '{cmd_list}' failed with error:")
+            print(str(e))
+
+    def grep(self, grep_for: str, cmd_output: str):
+        try:
+            cmd = ["grep", grep_for]
+            result = subprocess.run(cmd, input=cmd_output)
+            return self.build_result_tuple(result)
+        except Exception as e:
+            print(f"failed to grep cmd output: '{cmd_output}' with error:")
+            print(str(e))
+
+    @staticmethod
+    def cmd_has_no_args():
+        return len(sys.argv) == 1
+
+
 class PromptUtils:
-    pass
+    def _input_not_empty(self, input):
+        if input == "":
+            io.error_msg("input cannot be empty.", upper=False)
+            return False
+        return True
+
+    def _is_valid_input(self, input: str, allowed: list) -> bool:
+        if input not in allowed:
+            io.error_msg(f"input '{input}' not allowed.", upper=False)
+            return False
+        return True
+
+    def _is_valid_input_type(self, input: str, allowed_type: type) -> bool:
+        if not isinstance(input, allowed_type):
+            io.error_msg(f"input '{input}' not allowed type.", upper=False)
+            return False
+        return True
+
+    def yes_or_no(self, prompt: str) -> bool:
+        while True:
+            uinput = input(f"{prompt} (y/n): ").lower()
+            if self._input_not_empty(uinput) and self._is_valid_input(
+                uinput, ["y", "n"]
+            ):
+                return uinput
+
+    def open_ended(self, prompt: str) -> str:
+        while True:
+            uinput = input(f"{prompt}: ")
+            if self._input_not_empty(uinput):
+                return uinput
+
+    def list_selection(self, prompt: str, options: list) -> str:
+        while True:
+            print(f"{IOUtils._apply_color(prompt, 'black')}")
+            for i, option in enumerate(options):
+                opt_str = f"{i + 1} -> {option}"
+                print(f"{IOUtils._apply_color(opt_str, 'gray')}")
+            uinput = input("\nEnter number of selection: ")
+            if self._input_not_empty(uinput) and self._is_valid_input(
+                uinput, [str(i) for i in range(1, len(options) + 1)]
+            ):
+                return options[int(uinput) - 1]
 
 
 class PdfUtils:
