@@ -1,0 +1,28 @@
+import argparse, os
+
+
+def main_function(args):
+    pass
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="")
+
+    parser.add_argument("--string", type=str, help="")  # string
+
+    parser.add_argument("--integer", type=int, help="")  # int
+
+    parser.add_argument("--float", type=float, help="")  # float
+
+    parser.add_argument("--boolean", action="store_true", help="")  # bool
+
+    parser.add_argument("--list", type=int, nargs="+", help="")  # list
+
+    parser.add_argument("--file", type=argparse.FileType("r"), help="")  # file
+
+    parser.add_argument("--choice", type=str, choices=["red", "green", "blue"], help="")  # restricted choice
+
+    # set arguments to variables
+    args = parser.parse_args()
+
+    main_function(args)

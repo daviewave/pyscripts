@@ -1,0 +1,58 @@
+Commands -- Ctrl+E to open command panel
+
+  $-- Key Bindings --$
+
+#- General -#
+Ctrl+r - Toggle Line Numbers
+Ctrl+e - Command bar
+Ctrl+f - search
+Ctrl+n - next in search
+Ctrl+p - previous in search
+Ctrl+g - Help
+Alt+g - bindings
+Ctrl+l - Goto line
+Ctrl+b - Shell
+Ctrl+q - quit
+Ctrl+o - open
+
+#- File -#
+Ctrl+s - Save
+
+#- Splits -#
+Ctrl+Alt+> - Next Tab
+Ctrl+Alt+< - Prev Tab
+
+#- Editing -#
+Ctrl+c - Copy
+Ctrl+v - Paste
+Ctrl+x - Cut
+Ctrl+k - Cut Line
+Ctrl+z - Undo
+Ctrl+y - Redo
+Ctrl+d - Duplicate line
+Ctrl+a - Select all
+
+#- navigation -#
+home - Start of line
+end - End of line
+Ctrl+home - Doc start
+Ctrl+end - Doc end
+Ctrl+Left - Jump word left
+Ctrl+Shift+Left - Select word left
+Ctrl+Right - Jump word right
+Ctrl+Shift+Right - Select word right
+Shift+home - Select until start of line
+Shift+end - Select until end of line
+Alt+Up - Move Line or selection UP
+Alt+Down - Move Line or selection DOWN
+Alt+Backspace - Delete word left
+Command+home --> show terminal without exiting editor
+
+#- Multi cursor =#
+Ctrl+MouseLEft - Apply multi cursors
+Alt+n - Apply multi-cursor for matched word
+Alt-x - Skip Multi-cursor for matched word
+Alt-m - Apply multi cursor at the beginning at selection lines
+Alt+p / Alt+c - Remove multicursor / Remove all
+Alt+Shift+Up - Add Multicursor Up
+Alt+Shift+Down - Add Multicursor Down
