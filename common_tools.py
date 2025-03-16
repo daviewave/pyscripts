@@ -275,6 +275,12 @@ class IOUtils:
             if not input().lower() == "y":
                 sys.exit(1)
 
+    def enter_to_continue(self):
+        input("\nPress enter to continue...")
+
+    def clear_screen(self):
+        os.system("clear")
+
 
 class PromptUtils:
     pass
