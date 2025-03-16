@@ -276,22 +276,6 @@ class IOUtils:
                 sys.exit(1)
 
 
-# Example usage:
-if __name__ == "__main__":
-    IOUtils.start_print(1, "Initializing main process")
-    IOUtils.info_print("This is an informational message.")
-    IOUtils.warning_print("This is a warning!", prompt_continue=True)
-    IOUtils.done_print("done", uppercase=True)
-    # Demonstrate inline done_print (e.g., updating progress on the same line)
-    import time
-
-    for i in range(5):
-        IOUtils.done_print(f"Processing step {i+1}/5", inline=True)
-        time.sleep(1)
-    # End with a newline to ensure subsequent output is not overwritten.
-    print()
-
-
 class PromptUtils:
     pass
 
