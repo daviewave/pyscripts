@@ -80,7 +80,7 @@ class IOUtils:
         print(full_msg)
         if prompt_continue:
             prompt = PromptUtils()
-            prompt.continue_prompt()
+            prompt.to_continue()
 
     def info_msg(self, message, upper=False, add_spacing=False):
         msg_pretext = "INFO:" if upper else "(info) ->"
@@ -92,6 +92,7 @@ class IOUtils:
         print(full_msg)
 
     def success_msg(self, message, result_var=None):
+        import pyaml
         msg_pretext = IOUtils._apply_color("success!", "green")
         full_msg = f"{msg_pretext} {IOUtils._apply_color(message, 'green')}"
 
@@ -122,26 +123,32 @@ class IOUtils:
         self,
         message,
         error=None,
+        status=None,
         raise_exception=False,
         prompt_continue=False,
     ):
         # prep message
         upper = True if raise_exception or prompt_continue else False
-        msg_pretext = "\nERROR!" if upper else "\n(error) -->"
-        full_msg = f"{IOUtils._apply_color(msg_pretext, 'red')} {IOUtils._apply_color(message, 'red')}"
+        error_substr = "\nERROR" if upper else "\n(error)" 
+        full_msg = f"{error_substr} -> {status} failed with error:" if status else f"{error_substr} -> failed with error:"
+        full_msg = IOUtils._apply_color(full_msg, 'red')
 
-        # print and determine if should exit or not
+        if message:
+            if not error:
+                full_msg = f"{full_msg} {message}"
+            else:
+                error = str(error)
+                full_msg = f"{full_msg} \n{error}"
+
         print(full_msg)
+        
         if raise_exception:
             raise Exception(error)
-
-        if error:
-            redstr = IOUtils._apply_color("--> error:", "red")
-            print(f"{redstr} {str(error if error else '')}")
+    
         if prompt_continue:
-            input("Do you want to continue? (y/n) ")
-            if not input().lower() == "y":
-                sys.exit(1)
+            prompt = PromptUtils() 
+            prompt.to_continue()
+            
 
     def clear_screen(self):
         os.system("clear")
@@ -359,12 +366,12 @@ class PromptUtils:
         else:
             return False
 
-    def continue_prompt(self):
+    def to_continue(self):
         yon = self.yes_or_no("Do you want to continue?")
         if yon == "no":
             print("exiting...")
             sys.exit(1)
-        return
+        return True
 
     def path_prompt(self, must_exist=True, fod=None):
         fs = FsUtils()
@@ -402,13 +409,15 @@ class FsUtils:
 
     @staticmethod
     def create_dir(path):
-        os.makedirs(path, exist_ok=True)
+        try:
+            os.makedirs(path, exist_ok=True)
+        except Exception as e:
+            io.error_msg("")
 
-    
+
     def exists(self, path):
         return Path(path).exists()
         
-
     def set_immutable(
         self,
         path,
@@ -515,7 +524,6 @@ class FsUtils:
                     else:
                         path = prompt.path_prompt(must_exist=False, fod="dir")
                         
-
     def handle_symlink(self, fp):
         if Path(fp).is_symlink():
             pass
