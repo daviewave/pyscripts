@@ -36,28 +36,29 @@ class IOUtils:
             return self.colors[color] + text + self.colors["RESET"]
         return text
 
-    def start_msg(self, message, curr_status, subfunction=False, prev_line=False):
-        if subfunction:
-            print(
-                f"\t{self._apply_color(f'({curr_status})', 'purple')} {self._apply_color(message, 'gray')}... ",
-                end="",
-            )
+    def start_msg(self, status, message, func, prev_line=False):
+        start_msg = ""
+
+        # 1.
+        if "/" in status:
+            status = self._apply_color(status, "blue")
         else:
-            print(
-                f"{self._apply_color(f'{curr_status}', 'blue')} {self._apply_color(message, 'black')}... ",
-                end="" if prev_line else "\n",
-            )
+            status = f"\t{status}"
+            status = self._apply_color(status, "purple")
+
+        # 2.
+        start_msg = f"({status}) -> {func}: {message}"
+
+        # 3.
+        print(start_msg, end="" if prev_line else "\n")
 
     def done(
         self,
-        upper=True,
+        upper=False,
         newline=False,
     ):
-        done = "done."
-        if upper:
-            done = "Done."
+        done = "Done." if upper else "done."
         colored_done = self._apply_color(done, "green")
-
         print(colored_done)
         if newline:
             print("---------\n")
@@ -714,6 +715,7 @@ class EnvUtils:
         else:
             return False
 
+    # major func
     def has_brew_deps(self, dependencies_fp, os="mac"):
         # 1.
         if not self._is_brew_installed():
@@ -744,13 +746,13 @@ class EnvUtils:
             self.io.info_msg("all brew dependecies satisified.")
             return True
         else:
-
             self.io.error_msg(
                 f"failed to meet brew dependency requirements for the following brew packages: {failed}",
                 status="check_deps() --> has_brew_deps()",
                 raise_exception=True,
             )
 
+    # major func
     def has_pip_deps(self, dependencies_fp, os="mac"):
         # 1.
         dependencies = self.get_requirements_file(dependencies_fp)
