@@ -596,7 +596,6 @@ class EnvUtils:
         split_version_nums = []
         for char in version_tag:
             if char.isdigit():
-                print(f"dchar --> {char}")
                 split_version_nums.append(char)
 
             if len(split_version_nums) == 3:
@@ -619,7 +618,7 @@ class EnvUtils:
 
         # open and store contents of file in list
         dependencies = f.open(fp, mode="r", return_type="lines")
-        if len(dependencies) == 0:
+        if dependencies[0] == "":
             return False
 
         # loop through deps file, creating dict structures for each line
