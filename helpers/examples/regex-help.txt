@@ -1,0 +1,12 @@
+#== 're' pkg funcs ==#
+    -> .match(pattern, str): only checks beginning of the string
+    
+    -> .search(pattern, str): searches entire string
+    
+    -> .findall(pattern, str): returns all regex matches
+    
+    -> .finditer(pattern, str): returns an iterator yielding match objects for all matches.
+    
+    -> .sub(pattern, replace_str, str): replace all regex instances with new string
+    
+    -> .split(pattern, str): splits string at the regex
