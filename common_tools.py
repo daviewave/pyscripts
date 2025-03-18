@@ -174,7 +174,7 @@ class CmdUtils:
         time_out_after=None,
         env=None,
         input=None,
-        dont_raise_exc=False,
+        no_exception=False,
     ):
         """simple run command with arg options"""
         try:
@@ -189,7 +189,7 @@ class CmdUtils:
             )
             return self.build_result_tuple(result)
         except Exception as e:
-            if dont_raise_exc:
+            if no_exception:
                 self.io.error_msg(status="CmdUtils", func="run()", exception=e)
                 return False
             else:
@@ -203,7 +203,7 @@ class CmdUtils:
         run_from=None,
         time_out_after=None,
         env=None,
-        dont_raise_exc=False,
+        no_exception=False,
     ):
         """accepts a string as command argument (not safe), so precautions are taken with shlex.quote()"""
         try:
@@ -219,7 +219,7 @@ class CmdUtils:
             )
             return self.build_result_tuple(result)
         except Exception as e:
-            if dont_raise_exc:
+            if no_exception:
                 self.io.error_msg(status="CmdUtils", func="run_str()", exception=e)
                 return False
             else:
@@ -238,7 +238,7 @@ class CmdUtils:
         env=None,
         use_bytes=False,
         new_session=False,
-        dont_raise_exc=False,
+        no_exception=False,
     ):
         """uses subprocess.Popen() which allows for communication with the process as events happen"""
         try:
@@ -269,7 +269,7 @@ class CmdUtils:
         run_from=None,
         time_out_after=None,
         env=None,
-        dont_raise_exc=False,
+        no_exception=False,
     ):
         """runs a command but only the exit code can be returned to a variable"""
         try:
@@ -278,7 +278,7 @@ class CmdUtils:
             )
             return return_code
         except Exception as e:
-            if dont_raise_exc:
+            if no_exception:
                 self.io.error_msg(status="CmdUtils", func="call()", exception=e)
                 return False
             else:
@@ -291,7 +291,7 @@ class CmdUtils:
         run_from=None,  # dir to execute command
         time_out_after=None,
         env=None,
-        dont_raise_exc=False,
+        no_exception=False,
     ):
         """same as call() but returns an Exception (like check arg in run()), runs a command but only the exit code can be returned to a variable"""
 
@@ -301,7 +301,7 @@ class CmdUtils:
             )
             return return_code
         except Exception as e:
-            if dont_raise_exc:
+            if no_exception:
                 self.io.error_msg(status="CmdUtils", func="call()", exception=e)
                 return False
             else:
@@ -319,7 +319,6 @@ class CmdUtils:
 
 
 class PromptUtils:
-
     def __init__(self):
         self.io = IOUtils()
 
@@ -445,6 +444,83 @@ class FsUtils:
     def exists(self, path):
         return Path(path).exists()
 
+    def is_valid_file(self, path):
+        return Path(path).is_file()
+
+    def is_valid_dir(self, path):
+        return Path(path).is_dir()
+
+    def is_valid_path(
+        self,
+        path,
+        strict=["file", "dir"],
+        no_exception=False,
+    ):
+        if type(strict) == str:
+            if strict == "file" and self.is_valid_file(path):
+                return True
+
+            if strict == "dir" and self.is_valid_dir(path):
+                return True
+
+            if no_exception:
+                return False
+
+        elif self.is_valid_file(path) or self.is_valid_dir(path):
+            return True
+
+        elif no_exception:
+            return False
+        else:
+            self.io.error_msg(status="FsUtils", func="is_valid_path()", message=path)
+            raise OSError("invalid path provided")
+
+    def is_abs_path(self, path):
+        return Path(path).is_absolute()
+
+    def ensure_absolute_path(self, path):
+        """assumes that path has already been validated"""
+        return Path(path).absolute()
+
+    def get_path_type(self, path):
+        if self.is_valid_path(path):
+            if self.is_valid_file(path):
+                return "file"
+            else:
+                return "dir"
+
+    def validate_output_dir(
+        self, path, must_exist=False, saving_a="file", raise_excpeption=False
+    ):
+        """scenario where the script is creating a new file or directory"""
+        if saving_a == "file":
+            if self.is_valid_path(path, strict="dir", raise_exception=raise_excpeption):
+                return path
+
+            if not must_exist:
+                self.io.info_msg(f"creating new directory at '{path}'")
+                path = self.ensure_absolute_path(path)
+                self.create_dir(path)
+                return path
+            else:
+                self.io.error_msg(
+                    "the directory must already exist", raise_exception=raise_excpeption
+                )
+                return False
+
+        # full directory --> never want this to already exist
+        else:
+            while True:
+                if self.exists(path):
+                    prompt = PromptUtils()
+                    wants_to_overwrite = prompt.to_overwrite(path)
+                    if wants_to_overwrite:
+                        self.rm(path)
+                        self.mkdir(path)
+                        return path
+                    else:
+                        path = prompt.for_path(fod="dir")
+
     def set_immutable(
         self,
         path,
@@ -498,93 +574,6 @@ class FsUtils:
         else:
             self.io.warning_msg(f"failed to set {path} as immutable.")
 
-    def is_valid_file(self, path, raise_exception=False):
-        if Path(path).is_file():
-            return True
-        else:
-            self.io.error_msg(
-                f"the path '{path}' is not a valid file",
-                raise_exception=raise_exception,
-                prompt_continue=prompt_continue,
-            )
-            return False
-
-    def is_valid_dir(self, path, raise_exception=False, prompt_continue=False):
-        if Path(path).is_dir():
-            return True
-        else:
-            self.io.error_msg(
-                f"the path '{path}' is not a valid file",
-                raise_exception=raise_exception,
-                prompt_continue=prompt_continue,
-            )
-            return False
-
-    def is_valid_path(
-        self, path, strict=["file", "dir"], raise_exception=False, prompt_continue=False
-    ):
-        if type(strict) == str:
-            if strict == "file" and self.is_valid_file(
-                path, raise_exception=raise_exception, prompt_continue=prompt_continue
-            ):
-                return True
-            if strict == "dir" and self.is_valid_dir(
-                path, raise_exception=raise_exception, prompt_continue=prompt_continue
-            ):
-                return True
-        else:
-            return self.is_valid_file(
-                path, raise_exception=raise_exception, prompt_continue=prompt_continue
-            ) or self.is_valid_dir(
-                path, raise_exception=raise_exception, prompt_continue=prompt_continue
-            )
-
-    def is_abs_path(self, path):
-        return Path(path).is_absolute()
-
-    def ensure_absolute_path(self, path):
-        """assumes that path has already been validated"""
-        return Path(path).absolute()
-
-    def get_path_type(self, path):
-        if self.is_valid_path(path):
-            if self.is_valid_file(path):
-                return "file"
-            else:
-                return "dir"
-
-    def validate_output_dir(
-        self, path, must_exist=False, saving_a="file", raise_excpeption=False
-    ):
-        """scenario where the script is creating a new file or directory"""
-        if saving_a == "file":
-            if self.is_valid_path(path, strict="dir", raise_exception=raise_excpeption):
-                return path
-
-            if not must_exist:
-                self.io.info_msg(f"creating new directory at '{path}'")
-                path = self.ensure_absolute_path(path)
-                self.create_dir(path)
-                return path
-            else:
-                self.io.error_msg(
-                    "the directory must already exist", raise_exception=raise_excpeption
-                )
-                return False
-
-        # full directory --> never want this to already exist
-        else:
-            while True:
-                if self.exists(path):
-                    prompt = PromptUtils()
-                    wants_to_overwrite = prompt.to_overwrite(path)
-                    if wants_to_overwrite:
-                        self.rm(path)
-                        self.mkdir(path)
-                        return path
-                    else:
-                        path = prompt.for_path(fod="dir")
-
     def handle_symlink(self, fp):
         if Path(fp).is_symlink():
             pass
@@ -616,6 +605,7 @@ class EnvUtils:
         return mappings.get(pkg_mgr)
 
     def get_requirements_file(self, fp):
+
         fs = FsUtils()
         f = FileUtils()
         prompt = PromptUtils()
@@ -623,14 +613,14 @@ class EnvUtils:
         if not fs.is_valid_path(fp, strict="file"):
             fp = prompt.for_path(fod="file")
 
-        # open and store contents of file in list
-        dependencies = f.open(fp, mode="r", return_type="lines")
-        if dependencies[0] == "":
+        # i. open and store contents of file in list
+        deps_file_contents = f.open(fp, mode="r", return_type="lines")
+        if not deps_file_contents:
             return False
 
-        # loop through deps file, creating dict structures for each line
+        # ii. loop through deps file, creating dict structures for each line
         structured_deps = []
-        for dep in dependencies:
+        for dep in deps_file_contents:
             cleaned_dep = dep.split()
             structured_dep = {cleaned_dep[0]: cleaned_dep[1]}
             structured_deps.append(structured_dep)
@@ -722,12 +712,39 @@ class EnvUtils:
             return False
 
     # major func
-    def has_brew_deps(self, dependencies_fp, os="mac"):
-        # 1.
-        if not self._is_brew_installed():
-            self.io.error_msg(
-                status="env.has_brew_deps()", message="check README for requirements"
+    def check_dependencies(self, dependencies_fp, pkg_mgr, os="mac"):
+        dependencies = self.get_requirements_file(dependencies_fp)
+        if not dependencies:
+            self.io.warning_msg(
+                f"no dependencies listed in file: {dependencies_fp}", upper=True
             )
+            return True
+
+        # 3.
+        brew_list_cmd = self.get_pkg_mgr_list_cmd("brew")
+
+        # 4.
+        failed = []
+        for dep in dependencies:
+            has_dependency = self._check_curr_dep(dep, brew_list_cmd)
+            if not has_dependency:
+                failed.append(dep)
+
+        # 5.
+        if len(failed) == 0:
+            self.io.info_msg("all brew dependecies satisified.")
+            return True
+        else:
+            self.io.error_msg(
+                f"failed to meet brew dependency requirements for the following brew packages: {failed}",
+                status="check_deps() --> has_brew_deps()",
+                raise_exception=True,
+            )
+
+    def has_brew_deps(self, dependencies_fp, os="mac"):
+        # a.
+        if not self._is_brew_installed():
+            self.io.error_msg(status="1.a", message="check README for requirements")
 
         # 2.
         dependencies = self.get_requirements_file(dependencies_fp)
@@ -835,11 +852,12 @@ class FileUtils:
         f = FileUtils()
         if fs.is_valid_path(fp, strict="file"):
             with open(fp, mode) as f:
-                f_content = f.read()
+                file_content = f.read()
+                if not file_content:
+                    return False
+
                 if return_type == "lines":
-                    lines = f_content.splitlines()
+                    lines = file_content.splitlines()
                     return lines
                 else:
-                    return f_content
-
-        return None
+                    return file_content
