@@ -8,8 +8,6 @@ from collections import namedtuple
 class IOUtils:
     """for consitent, easily customizable printing in scripts"""
 
-    pp = __import__("pprint")
-
     COLORS = {
         "purple": "\033[38;5;54m",
         "lpurple": "\033[95m",
@@ -29,7 +27,10 @@ class IOUtils:
     }
 
     def __init__(self):
+        import pprint as pp
+
         self.colors = IOUtils.COLORS
+        self.pp = pp
 
     def _apply_color(self, text: str, color: str = None) -> str:
         if color and color in self.colors:
@@ -66,31 +67,27 @@ class IOUtils:
     def warning_msg(
         self,
         message,
-        upper=False,
-        add_spacing=False,
+        emphasize,
         prompt_continue=False,
-        prev_line=False,
     ):
-        msg_pretext = "WARNING!" if upper else "(warning) ->"
-        full_msg = f"{self._apply_color(msg_pretext, 'orange')} {self._apply_color(message, 'orange')}"
-
-        if add_spacing:
-            full_msg = f"\n{full_msg}\n"
-
-        if prev_line:
-            print("")
+        msg_pretext = "\n\nWARNING:" if emphasize else "(warning) -->"
+        msg_pretext = self._apply_color(msg_pretext, "orange")
+        full_msg = f"{msg_pretext} {message}"
+        if emphasize:
+            full_msg = f"{full_msg}\n"
 
         print(full_msg)
+
         if prompt_continue:
             prompt = PromptUtils()
             prompt.to_continue()
 
-    def info_msg(self, message, upper=False, add_spacing=False):
-        msg_pretext = "INFO:" if upper else "(info) ->"
-        full_msg = f"{self._apply_color(msg_pretext, 'blue')} {self._apply_color(message, 'gray')}"
-
-        if add_spacing:
-            full_msg = f"\n{full_msg}\n"
+    def info_msg(self, message, emphasize=False):
+        msg_pretext = "\n\nINFO:" if emphasize else "(info) -->"
+        msg_pretext = self._apply_color(msg_pretext, "blue")
+        full_msg = f"{msg_pretext} {message}"
+        if emphasize:
+            full_msg = f"{full_msg}\n"
 
         print(full_msg)
 
@@ -123,40 +120,27 @@ class IOUtils:
         format_result_output(result_var)
         print("==========================")
 
-    def error_msg(
-        self,
-        message=None,
-        status=None,
-        func=None,
-        error=None,
-        raise_exception=False,
-        prompt_continue=False,
-    ):
+    def error_msg(self, status, func, message=None, exception=None):
+        # 1. going to assume that if exception isnt raised on the error, will always want to prompt to continue
+        # 2. also can assume that if the Exception(e) object is passed, the exception was not raised and therefore it was a non-fatal error, will still prompt the user to continue automatically at this point
+
         # prep message
-        upper = True if raise_exception or prompt_continue else False
-        error_substr = "\nERROR" if upper else "\n(error)"
-        full_msg = (
-            f"{error_substr} -> ({status}) failed with error:"
-            if status
-            else f"{error_substr} -> failed with error:"
+        msg_pretext = (
+            f"\n\nError! ({status}) {func}"
+            if message
+            else f"\n\nError! ({status}) {func} -->"
         )
-        full_msg = self._apply_color(full_msg, "red")
+        msg_pretext = self._apply_color(full_msg, "red")
 
-        if raise_exception:
-            print(full_msg)
-            if error:
-                raise Exception(error)
-            sys.exit(1)
-
+        full_msg = msg_pretext
         if message:
-            if not error:
-                full_msg = f"{full_msg} {message}"
-            else:
-                error = str(error)
-                full_msg = f"{full_msg} \n{error}"
+            full_msg = f"{msg_pretext} {message}"
+
+        if exception:
+            full_msg = f"{full_msg}:\n{exception}"
 
         print(full_msg)
-        if prompt_continue:
+        if exception:
             prompt = PromptUtils()
             prompt.to_continue()
 
@@ -167,11 +151,13 @@ class IOUtils:
 class CmdUtils:
     """simplify running commands in python scripts"""
 
-    shlex = __import__("shlex")
     Result = namedtuple("Result", ["stdout", "stderr", "returncode"])
 
     def __init__(self):
+        import shlex as shlex
+
         self.io = IOUtils()
+        self.cmd_safety = shlex
 
     def build_result_tuple(self, result):
         return self.Result(
@@ -188,8 +174,7 @@ class CmdUtils:
         time_out_after=None,
         env=None,
         input=None,
-        raise_exception=True,
-        prompt_continue=False,
+        dont_raise_exc=False,
     ):
         """simple run command with arg options"""
         try:
@@ -204,26 +189,25 @@ class CmdUtils:
             )
             return self.build_result_tuple(result)
         except Exception as e:
-            self.io.error_msg(
-                status="CmdUtils.run()",
-                error=e,
-                raise_exception=raise_exception,
-                prompt_continue=prompt_continue,
-            )
+            if dont_raise_exc:
+                self.io.error_msg(status="CmdUtils", func="run()", exception=e)
+                return False
+            else:
+                self.io.error_msg(status="CmdUtils", func="run()")
+                raise Exception(e)
 
     def run_str(
         self,
         cmd_str: list,
         use_console=False,
-        raise_exception=False,
         run_from=None,
         time_out_after=None,
-        prompt_continue=False,
         env=None,
+        dont_raise_exc=False,
     ):
         """accepts a string as command argument (not safe), so precautions are taken with shlex.quote()"""
         try:
-            secured_cmd = self.shlex.quote(cmd_str)
+            secured_cmd = self.cmd_safety.quote(cmd_str)
 
             result = subprocess.run(
                 secured_cmd,
@@ -234,16 +218,15 @@ class CmdUtils:
                 env=env,
             )
             return self.build_result_tuple(result)
-
         except Exception as e:
-            self.io.error_msg(
-                message="run_str command failed",
-                error=e,
-                status="cmd.run_str()",
-                raise_exception=raise_exception,
-                prompt_continue=prompt_continue,
-            )
+            if dont_raise_exc:
+                self.io.error_msg(status="CmdUtils", func="run_str()", exception=e)
+                return False
+            else:
+                self.io.error_msg(status="CmdUtils", func="run_str()")
+                raise Exception(e)
 
+    # come back to this when needed in script
     def interactive(
         self,
         cmd_list: list,
@@ -255,8 +238,7 @@ class CmdUtils:
         env=None,
         use_bytes=False,
         new_session=False,
-        raise_exception=False,
-        prompt_continue=False,
+        dont_raise_exc=False,
     ):
         """uses subprocess.Popen() which allows for communication with the process as events happen"""
         try:
@@ -287,6 +269,7 @@ class CmdUtils:
         run_from=None,
         time_out_after=None,
         env=None,
+        dont_raise_exc=False,
     ):
         """runs a command but only the exit code can be returned to a variable"""
         try:
@@ -295,7 +278,12 @@ class CmdUtils:
             )
             return return_code
         except Exception as e:
-            self.io.error_msg("call command failed", e)
+            if dont_raise_exc:
+                self.io.error_msg(status="CmdUtils", func="call()", exception=e)
+                return False
+            else:
+                self.io.error_msg(status="CmdUtils", func="call()")
+                raise Exception(e)
 
     def check_call(
         self,
@@ -303,8 +291,7 @@ class CmdUtils:
         run_from=None,  # dir to execute command
         time_out_after=None,
         env=None,
-        raise_exception=None,
-        prompt_continue=None,
+        dont_raise_exc=False,
     ):
         """same as call() but returns an Exception (like check arg in run()), runs a command but only the exit code can be returned to a variable"""
 
@@ -314,33 +301,17 @@ class CmdUtils:
             )
             return return_code
         except Exception as e:
-            self.io.error_msg(
-                message="check_call command failed",
-                status="cmd.check_call()",
-                error=e,
-                raise_exception=raise_exception,
-                prompt_continue=prompt_continue,
-            )
+            if dont_raise_exc:
+                self.io.error_msg(status="CmdUtils", func="call()", exception=e)
+                return False
+            else:
+                self.io.error_msg(status="CmdUtils", func="call()")
+                raise Exception(e)
 
-    def grep(
-        self,
-        grep_for: str,
-        cmd_output: str,
-        raise_exception=True,
-        prompt_continue=False,
-    ):
-        try:
-            cmd = ["grep", grep_for]
-            result = self.run(cmd, input=cmd_output)
-            return result
-            # return self.build_result_tuple(result)
-        except Exception as e:
-            self.io.error_msg(
-                status="CmdUtils.grep()",
-                error=e,
-                raise_exception=raise_exception,
-                prompt_continue=prompt_continue,
-            )
+    def grep(self, grep_for: str, cmd_output: str):
+        cmd = ["grep", grep_for]
+        result = self.run(cmd, input=cmd_output)
+        return result
 
     @staticmethod
     def cmd_has_no_args():
@@ -477,22 +448,57 @@ class FsUtils:
     def set_immutable(
         self,
         path,
-        append_only=False,
-        strict=False,
-        user=True,
+        strict=["file", "dir"],
         system=False,
-        fod=None,  # options are 'file'/'dir' to prevent make a directory you didn't intend immutable
+        append_only=False,
+        max=False,
     ):
-        """makes file/directory passed as path immutable. only user immutable by default"""
-        pass
+        def get_immutability_level(system, append_only):
+            if system:
+                if max:
+                    return "6"
+                elif append_only:
+                    return "5"
+                else:
+                    return "4"
+            else:
+                if max:
+                    return "3"
+                elif append_only:
+                    return "2"
+                else:
+                    return "1"
 
-        # if enforce_path_type:
-        #     if enforce_path_type == "file":
+        def get_immutablity_level_flag(level):
+            mappings = {
+                "1": "uappend",
+                "2": "sappend",
+                "3": "uchg",
+                "4": "schg",
+                "5": "uimmutable",
+                "6": "simmutable",
+            }
+            return mappings.get(level)
 
-        #     else
-        # else:
+        # 1. validate path
+        if not self.is_valid_path(path, strict=strict):
+            return False
 
-    def is_valid_file(self, path, raise_exception=False, prompt_continue=False):
+        # 2. prepare command
+        cmd_start = ["sudo", "chflags"] if system else ["chflags"]
+        immutablity_level = get_immutability_level(system, append_only)
+        immutable_flag = get_immutablity_level_flag(immutablity_level)
+        full_cmd = cmd_start + [immutable_flag, path]
+
+        # 3. run command
+        cmd = CmdUtils()
+        result = cmd.run(full_cmd)
+        if result.returncode == 0:
+            self.io.info_msg(f"{path} is now immutable.")
+        else:
+            self.io.warning_msg(f"failed to set {path} as immutable.")
+
+    def is_valid_file(self, path, raise_exception=False):
         if Path(path).is_file():
             return True
         else:
