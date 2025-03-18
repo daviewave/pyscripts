@@ -356,10 +356,10 @@ class PromptUtils:
 
     def list_selection(self, prompt: str, options: list) -> str:
         while True:
-            print(f"{self._apply_color(prompt, 'black')}")
+            print(f"{self.io._apply_color(prompt, 'black')}")
             for i, option in enumerate(options):
                 opt_str = f"{i + 1} -> {option}"
-                print(f"{self._apply_color(opt_str, 'gray')}")
+                print(f"{self.io._apply_color(opt_str, 'gray')}")
             uinput = input("\nEnter number of selection: ")
             if not self._is_empty_input(uinput) and self._is_valid_input(
                 uinput, [str(i) for i in range(1, len(options) + 1)]
