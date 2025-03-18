@@ -1,6 +1,5 @@
 import argparse, sys, os
 
-script_dir = os.path.abspath(__file__)
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.environ.get("py")))
 )
@@ -10,21 +9,32 @@ from common_tools import EnvUtils, IOUtils
 
 # - 1.
 def check_deps():
-    # a)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    io = IOUtils()
     env = EnvUtils()
-    brew_requirements_fp = f"{script_dir}/brew-requirements.txt"
-    pip_requirements_fp = f"{script_dir}/brew-requirements.txt"
 
-    print(f"brfp: {brew_requirements_fp}")
-    print(f"prfp: {pip_requirements_fp}")
+    # a) confirm brew deps
+    io.start_msg(
+        status="a",
+        message="validating your system has the required homebrew packages...",
+        prev_line=True,
+    )
+    env.validate_brew_installed()
+    brew_requirements_file = f"{script_dir}/os-requirements.txt"
+    env.validate_deps_installed(brew_requirements_file, pkg_mgr="brew")
+    io.done(subfunction=True)
 
     # b)
-    has_brew_dependencies = env.has_brew_deps(brew_requirements_fp)
+    io.start_msg(
+        status="b",
+        message="checking system/virtualenv for required pip packages...",
+        prev_line=True,
+    )
+    pip_requirements_file = f"{script_dir}/pip-requirements.txt"
+    env.validate_deps_installed(pip_requirements_file, pkg_mgr="pip")
+    io.done(subfunction=True)
 
-    # c)
-    has_pip_dependencies = env.has_brew_deps(pip_requirements_fp)
-
-    return has_brew_dependencies and has_pip_dependencies
+    return
 
 
 # - 2.
@@ -58,9 +68,14 @@ def backup_iphone_data(no_encrypt, full_backup, output_dir):
         message="checking your system for required depencencies...",
     )
     check_deps()
-    io.done(newline=True)
+    io.done()
 
     # 2.
+    io.start_msg(
+        status="1/5",
+        func="check_deps()",
+        message="checking your system for required depencencies...",
+    )
 
     # 3.
 

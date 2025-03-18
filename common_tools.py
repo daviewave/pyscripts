@@ -37,31 +37,31 @@ class IOUtils:
             return self.colors[color] + text + self.colors["RESET"]
         return text
 
-    def start_msg(self, status, message, func, prev_line=False):
+    def start_msg(self, status, message, func=None, prev_line=False):
         start_msg = ""
+
+        if "1" in status:
+            print("")
 
         # 1.
         if "/" in status:
+            status = f"({status})"
             status = self._apply_color(status, "blue")
         else:
-            status = f"\t{status}"
+            status = f"  ({status})"
             status = self._apply_color(status, "purple")
 
         # 2.
-        start_msg = f"({status}) -> {func}: {message}"
+        start_msg = f"{status} {func}: {message}" if func else f"{status}-> {message}"
 
         # 3.
         print(start_msg, end="" if prev_line else "\n")
 
-    def done(
-        self,
-        upper=False,
-        newline=False,
-    ):
-        done = "Done." if upper else "done."
+    def done(self, subfunction=False):
+        done = "done." if subfunction else "Done."
         colored_done = self._apply_color(done, "green")
         print(colored_done)
-        if newline:
+        if not subfunction:
             print("---------\n")
 
     def warning_msg(
@@ -130,7 +130,7 @@ class IOUtils:
             if message
             else f"\n\nError! ({status}) {func} -->"
         )
-        msg_pretext = self._apply_color(full_msg, "red")
+        msg_pretext = self._apply_color(msg_pretext, "red")
 
         full_msg = msg_pretext
         if message:
@@ -324,7 +324,7 @@ class PromptUtils:
 
     def _is_empty_input(self, input):
         if input == "":
-            self.io.error_msg("input cannot be empty.")
+            # self.io.error_msg(message="input cannot be empty.")
             return True
         return False
 
@@ -430,11 +430,7 @@ class FsUtils:
 
     @staticmethod
     def create_dir(path):
-        io = IOUtils()
-        try:
-            os.makedirs(path, exist_ok=True)
-        except Exception as e:
-            io.error_msg("")
+        os.makedirs(path, exist_ok=True)
 
     def __init__(self):
         self.io = IOUtils()
@@ -450,7 +446,7 @@ class FsUtils:
     def is_valid_dir(self, path):
         return Path(path).is_dir()
 
-    def is_valid_path(
+    def check_valid_path(
         self,
         path,
         strict=["file", "dir"],
@@ -471,6 +467,7 @@ class FsUtils:
 
         elif no_exception:
             return False
+
         else:
             self.io.error_msg(status="FsUtils", func="is_valid_path()", message=path)
             raise OSError("invalid path provided")
@@ -483,11 +480,10 @@ class FsUtils:
         return Path(path).absolute()
 
     def get_path_type(self, path):
-        if self.is_valid_path(path):
-            if self.is_valid_file(path):
-                return "file"
-            else:
-                return "dir"
+        if self.is_valid_file(path):
+            return "file"
+        else:
+            return "dir"
 
     def validate_output_dir(
         self, path, must_exist=False, saving_a="file", raise_excpeption=False
@@ -571,8 +567,13 @@ class FsUtils:
         result = cmd.run(full_cmd)
         if result.returncode == 0:
             self.io.info_msg(f"{path} is now immutable.")
+            return True
         else:
             self.io.warning_msg(f"failed to set {path} as immutable.")
+            return False
+
+    def get_file_directory(path):
+        return Path(path).stem()
 
     def handle_symlink(self, fp):
         if Path(fp).is_symlink():
@@ -605,27 +606,22 @@ class EnvUtils:
         return mappings.get(pkg_mgr)
 
     def get_requirements_file(self, fp):
-
-        fs = FsUtils()
-        f = FileUtils()
-        prompt = PromptUtils()
-
-        if not fs.is_valid_path(fp, strict="file"):
-            fp = prompt.for_path(fod="file")
-
         # i. open and store contents of file in list
+        f = FileUtils()
         deps_file_contents = f.open(fp, mode="r", return_type="lines")
-        if not deps_file_contents:
-            return False
 
         # ii. loop through deps file, creating dict structures for each line
-        structured_deps = []
-        for dep in deps_file_contents:
-            cleaned_dep = dep.split()
-            structured_dep = {cleaned_dep[0]: cleaned_dep[1]}
-            structured_deps.append(structured_dep)
+        try:
+            structured_deps = []
+            for dep in deps_file_contents:
+                cleaned_dep = dep.split()
+                structured_dep = {cleaned_dep[0]: cleaned_dep[1]}
+                structured_deps.append(structured_dep)
 
-        return structured_deps
+            return structured_deps
+        except Exception as e:
+            self.io.error_msg(status="EnvUtils", func="get_requirements_file()")
+            raise Exception(e)
 
     def _check_curr_dep(self, dependency, list_cmd):
 
@@ -690,7 +686,7 @@ class EnvUtils:
         else:
             return False
 
-    def _is_brew_installed(self, os="mac"):
+    def validate_brew_installed(self, os="mac"):
         # determine command based on os
         cmd = None
         if os == "mac":
@@ -709,102 +705,46 @@ class EnvUtils:
         if len(lines) == 1:
             return True
         else:
+            raise OSError("homebrew not installed on system")
+
+    # major func
+    def validate_deps_installed(self, fp, pkg_mgr, os="mac"):
+        # i.
+        fs = FsUtils()
+        fs.check_valid_path(fp, strict="file")
+        fp = fs.ensure_absolute_path(fp)
+        if FileUtils.is_empty_file(fp):
             return False
 
-    # major func
-    def check_dependencies(self, dependencies_fp, pkg_mgr, os="mac"):
-        dependencies = self.get_requirements_file(dependencies_fp)
-        if not dependencies:
-            self.io.warning_msg(
-                f"no dependencies listed in file: {dependencies_fp}", upper=True
-            )
-            return True
+        # ii.
+        brew_list_cmd = self.get_pkg_mgr_list_cmd(pkg_mgr)
 
-        # 3.
-        brew_list_cmd = self.get_pkg_mgr_list_cmd("brew")
+        # iii.
+        dependencies = self.get_requirements_file(fp)
 
-        # 4.
+        # iv.
         failed = []
         for dep in dependencies:
-            has_dependency = self._check_curr_dep(dep, brew_list_cmd)
-            if not has_dependency:
-                failed.append(dep)
+            try:
+                has_dependency = self._check_curr_dep(dep, brew_list_cmd)
+                if not has_dependency:
+                    failed.append(dep)
+            except Exception as e:
+                self.io.error_msg(
+                    status="iv", func="validate_deps_installed()", message=f"dep: {dep}"
+                )
+                raise Exception(e)
 
-        # 5.
+        # v.
         if len(failed) == 0:
-            self.io.info_msg("all brew dependecies satisified.")
             return True
         else:
             self.io.error_msg(
-                f"failed to meet brew dependency requirements for the following brew packages: {failed}",
-                status="check_deps() --> has_brew_deps()",
-                raise_exception=True,
+                status="v",
+                func="validate_deps_installed()",
+                message=f"the following {pkg_mgr} dependencies requirements were not met: {failed}",
             )
-
-    def has_brew_deps(self, dependencies_fp, os="mac"):
-        # a.
-        if not self._is_brew_installed():
-            self.io.error_msg(status="1.a", message="check README for requirements")
-
-        # 2.
-        dependencies = self.get_requirements_file(dependencies_fp)
-        if not dependencies:
-            self.io.warning_msg(
-                f"no dependencies listed in file: {dependencies_fp}", upper=True
-            )
-            return True
-
-        # 3.
-        brew_list_cmd = self.get_pkg_mgr_list_cmd("brew")
-
-        # 4.
-        failed = []
-        for dep in dependencies:
-            has_dependency = self._check_curr_dep(dep, brew_list_cmd)
-            if not has_dependency:
-                failed.append(dep)
-
-        # 5.
-        if len(failed) == 0:
-            self.io.info_msg("all brew dependecies satisified.")
-            return True
-        else:
-            self.io.error_msg(
-                f"failed to meet brew dependency requirements for the following brew packages: {failed}",
-                status="check_deps() --> has_brew_deps()",
-                raise_exception=True,
-            )
-
-    # major func
-    def has_pip_deps(self, dependencies_fp, os="mac"):
-        # 1.
-        dependencies = self.get_requirements_file(dependencies_fp)
-        if not dependencies:
-            self.io.warning_msg(
-                f"no dependencies listed in file: {dependencies_fp}", upper=True
-            )
-            return True
-
-        # 2.
-        pip_list_cmd = self.get_pkg_mgr_list_cmd("pip")
-
-        # 3.
-        failed = []
-        for dep in dependencies:
-            has_dependency = self._check_curr_dep(dep, pip_list_cmd)
-            if not has_dependency:
-                failed.append(dep)
-
-        # 4.
-        if len(failed) == 0:
-            self.io.info_msg("all pip dependecies satisified.")
-            return True
-        else:
-            self.io.error_msg(
-                f"failed to meet brew dependency requirements for the following pip packages: {failed}",
-                status="check_deps() --> has_brew_deps()",
-                raise_exception=True,
-            )
+            raise OSError()
 
 
 class RegexUtils:
@@ -845,19 +785,37 @@ class RegexUtils:
 
 class FileUtils:
     def __init__(self):
-        pass
+        self.io = IOUtils()
 
-    def open(self, fp, mode="r", return_type="lines"):
-        fs = FsUtils()
-        f = FileUtils()
-        if fs.is_valid_path(fp, strict="file"):
+    def open(self, fp, mode="r", return_type="lines", no_exception=False):
+        try:
             with open(fp, mode) as f:
                 file_content = f.read()
+
                 if not file_content:
-                    return False
+                    return "empty"
 
                 if return_type == "lines":
                     lines = file_content.splitlines()
                     return lines
+
                 else:
                     return file_content
+
+        except Exception as e:
+            if no_exception:
+                self.io.error_msg(
+                    status="FileUtils", func="open()", message=f"file: {fp}"
+                )
+                return False
+            else:
+                self.io.error_msg(status="FileUtils", func="open()")
+                raise Exception(e)
+
+    @staticmethod
+    def is_empty_file(fp):
+        f = FileUtils()
+        if f.open(fp) == "empty":
+            return True
+        else:
+            return False
