@@ -4,13 +4,14 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.environ.get("py")))
 )
 
-from common_tools import EnvUtils, IOUtils
+from common_tools import EnvUtils, IOUtils, CmdUtils, PromptUtils
+
+io = IOUtils()
 
 
 # - 1.
 def check_deps():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    io = IOUtils()
     env = EnvUtils()
 
     # a) confirm brew deps
@@ -39,7 +40,25 @@ def check_deps():
 
 # - 2.
 def get_target_iphone_id():
-    pass
+    # a) run command to print current connected iphones
+    cmd = CmdUtils()
+    command = ["idevice_id", "-l"]
+    result = cmd.run(command)
+    available_ids = result.stdout.split()
+    num_available = len(available_ids)
+
+    # b) handle based on num ids returned
+    if num_available == 0:
+        io.error_msg(status="2.b", func="get_target_iphone_id")
+        raise Exception("could not detect any connected iphones")
+    elif num_available >= 2:
+        prompt = PromptUtils()
+        return prompt.list_selection(
+            "found multiple iphones connected, select the one you would like to backup",
+            available_ids,
+        )
+    else:
+        return available_ids[0]
 
 
 # - 3.
@@ -59,7 +78,6 @@ def run_backup():
 
 # == main
 def backup_iphone_data(no_encrypt, full_backup, output_dir):
-    io = IOUtils()
 
     # 1.
     io.start_msg(
@@ -72,10 +90,13 @@ def backup_iphone_data(no_encrypt, full_backup, output_dir):
 
     # 2.
     io.start_msg(
-        status="1/5",
-        func="check_deps()",
+        status="2/5",
+        func="get_target_phone_id()",
         message="checking your system for required depencencies...",
+        prev_line=True,
     )
+    iphone_id = get_target_iphone_id()
+    io.done()
 
     # 3.
 
