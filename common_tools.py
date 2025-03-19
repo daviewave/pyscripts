@@ -234,7 +234,12 @@ class CmdUtils:
                 raise Exception(e)
 
     # come back to this when needed in script
-    def interactive(
+    def _check_end_subproc(self, subproc_output, subproc):
+        if subproc_output == "" and subproc.poll() is not None:
+            return True
+        return False
+
+    def await_subproc(
         self,
         cmd_list: list,
         executable=None,
@@ -246,6 +251,7 @@ class CmdUtils:
         use_bytes=False,
         new_session=False,
         no_exception=False,
+        save_conditional=None,
     ):
         """uses subprocess.Popen() which allows for communication with the process as events happen"""
         try:
@@ -263,7 +269,20 @@ class CmdUtils:
                 env=env,
                 start_new_session=new_session,
             )
-            return process
+            subproces_status = None
+            while True:
+                try:
+                    output = process.stdout.readline()
+
+                    if self._check_end_subproc(output, process):
+                        break
+
+                    subproces_status = save_conditional(output)
+                    continue
+                except:
+                    continue
+            process.wait()
+            return subproces_status
         except Exception as e:
             if no_exception:
                 self.io.error_msg(status="CmdUtils", func="interactive()", exception=e)
