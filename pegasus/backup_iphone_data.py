@@ -165,11 +165,16 @@ def run_backup(id, backup_dir, full_backup, no_encryption):
         message="executing iphone backup...",
         prev_line=True,
     )
+
+    def save_conditional(o):
+        if "Backup Successful." in o:
+            return o
+
     cmd = CmdUtils()
     command = ["idevicebackup2", "-u", id, "backup"] + flags + [backup_dir]
-    complete = cmd.stream_await_subproc(command, get_output=True)
-    if "Could not perform backup" in complete:
-        return True
+    cmd.stream_await_subproc(
+        command, get_output=True, save_conditional=save_conditional
+    )
 
     raise Exception("backup failed.")
 
