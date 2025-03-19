@@ -306,6 +306,7 @@ class CmdUtils:
         new_session=False,
         no_exception=False,
         executable=None,
+        save_conditional=_save_conditional,
     ):
         print("")
         try:
@@ -326,15 +327,18 @@ class CmdUtils:
             while True:
                 try:
                     output = process.stdout.readline()
+
                     if self._check_end_subproc(output, process):
                         break
 
                     if output:
                         print(output.strip())
+
+                    subproces_status = save_conditional(output)
                 except:
                     continue
             process.wait()
-            return True
+            return subproces_status
         except Exception as e:
             if no_exception:
                 self.io.error_msg(
@@ -566,7 +570,7 @@ class FsUtils:
 
     def ensure_absolute_path(self, path):
         """assumes that path has already been validated"""
-        return Path(path).absolute()
+        return os.path.abspath(path)
 
     def get_path_type(self, path):
         if self.is_valid_file(path):
@@ -899,6 +903,26 @@ class FileUtils:
                 return False
             else:
                 self.io.error_msg(status="FileUtils", func="open()")
+                raise Exception(e)
+
+    def write(self, fp, content, no_exception=False):
+        try:
+            with open(fp, mode) as f:
+                if isinstance(content, list):
+                    f.writelines("\n".join(content) + "\n") 
+                else:
+                    f.write(content)
+
+            return True
+
+        except Exception as e:
+            if no_exception:
+                self.io.error_msg(
+                    status="FileUtils", func="write()", message=f"Failed to write to: {fp}"
+                )
+                return False
+            else:
+                self.io.error_msg(status="FileUtils", func="write()")
                 raise Exception(e)
 
     @staticmethod
