@@ -907,7 +907,7 @@ class FileUtils:
 
     def write(self, fp, content, no_exception=False):
         try:
-            with open(fp, mode) as f:
+            with open(fp, "w") as f:
                 if isinstance(content, list):
                     f.writelines("\n".join(content) + "\n") 
                 else:

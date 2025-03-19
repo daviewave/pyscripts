@@ -1,5 +1,6 @@
-import argparse, os
+import argparse, os, sys
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.environ.get("py"))))
 
 def main_function(args):
     pass

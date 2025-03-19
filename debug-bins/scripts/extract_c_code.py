@@ -13,6 +13,7 @@ from common_tools import IOUtils, FsUtils, FileUtils
 
 def extract_c_code(fp, func, json_format):
     fs = FsUtils()
+    io = IOUtils()
     fs.is_valid_path(fp, strict="file")
 
     # a) 
@@ -41,7 +42,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f",
         "--file",
-        type=argparse.FileType("r"),
+        type=str,
         required=True,
         help="binary file to examine",
     )
