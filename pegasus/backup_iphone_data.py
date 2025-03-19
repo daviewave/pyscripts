@@ -114,7 +114,7 @@ def prep_backup_dir(backup_name, no_encrypt):
 
 
 # - 5.
-def run_backup(id, backup_dir, full_backup, no_encryption):
+def run_backup(id, backup_dir, full_backup, no_encryption, immutable):
 
     def enable_encryption(id):
         helper_msg = io._apply_color("(enter passcode after passwords)", "orange")
@@ -172,15 +172,18 @@ def run_backup(id, backup_dir, full_backup, no_encryption):
 
     cmd = CmdUtils()
     command = ["idevicebackup2", "-u", id, "backup"] + flags + [backup_dir]
-    cmd.stream_await_subproc(
+    result = cmd.stream_await_subproc(
         command, get_output=True, save_conditional=save_conditional
     )
 
-    raise Exception("backup failed.")
+    # if immutable and "Backup Successful." in result:
+    #     fs = FsUtils()
+    #     fs.set_immutable(backup_dir)
+    
 
 
 # == main
-def backup_iphone_data(no_encryption, full_backup, backup_name):
+def backup_iphone_data(no_encryption, full_backup, immutable, backup_name):
 
     # 1.
     io.start_msg(
@@ -227,7 +230,7 @@ def backup_iphone_data(no_encryption, full_backup, backup_name):
         func="run_backup()",
         message="backing up iphone data...",
     )
-    run_backup(iphone_id, backup_dir, full_backup, no_encryption)
+    run_backup(iphone_id, backup_dir, full_backup, no_encryption, immutable)
     io.done()
     io.success_msg(f"iphone data backed up at: {backup_dir}")
 
@@ -255,14 +258,21 @@ if __name__ == "__main__":
         required=True,
         help="enter the backup name to create and store the backup in",
     )
+    parser.add_argument(
+        "--immutable",
+        default="",
+        action="store_true",
+        help="enter the backup name to create and store the backup in",
+    )
 
     # NOTE: could allow the deps files as optional arguments
     args = parser.parse_args()
     no_encrypt = args.dont_encrypt
     full_backup = args.full
     backup_name = args.name
+    immutable = args.immutable
 
-    backup_iphone_data(no_encrypt, full_backup, backup_name)
+    backup_iphone_data(no_encrypt, full_backup, immutable, backup_name)
 
 
 # pseudo-code
