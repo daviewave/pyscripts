@@ -88,7 +88,7 @@ class IOUtils:
             prompt.to_continue()
 
     def info_msg(self, message, emphasize=False):
-        msg_pretext = "\n\nINFO:" if emphasize else "(info) -->"
+        msg_pretext = "\n(INFO) -->" if emphasize else "(info) -->"
         msg_pretext = self._apply_color(msg_pretext, "blue")
         full_msg = f"{msg_pretext} {message}"
         if emphasize:
@@ -239,33 +239,37 @@ class CmdUtils:
             return True
         return False
 
+    def _save_conditional(output):
+        return output
+
+    def _none():
+        return
+
     def await_subproc(
         self,
         cmd_list: list,
-        executable=None,
         connect_input=False,  # allows to connect to the the stdin (subprocess.PIPE)
         get_output=False,  # allows to capture the output (subprocess.PIPE)
         get_error=False,  # allows to capture the error (subprocess.PIPE)
-        run_from=None,
         env=None,
         use_bytes=False,
         new_session=False,
         no_exception=False,
-        save_conditional=None,
+        executable=None,
+        save_conditional=_save_conditional,
     ):
-        """uses subprocess.Popen() which allows for communication with the process as events happen"""
+        print("")
         try:
             process = subprocess.Popen(
                 cmd_list,
                 executable=executable,
                 text=not use_bytes,
                 # stdin=sys.stdin if connect_input == True else None,
-                stdin=subprocess.PIPE if connect_input == True else None,
                 # stdout=sys.stdout if get_output == True else None,
-                stdout=subprocess.PIPE if get_output == True else None,
                 # stderr=sys.stderr if get_error == True else None,
+                stdin=subprocess.PIPE if connect_input == True else None,
+                stdout=subprocess.PIPE if get_output == True else None,
                 stderr=subprocess.PIPE if get_error == True else None,
-                cwd=run_from,
                 env=env,
                 start_new_session=new_session,
             )
@@ -289,6 +293,59 @@ class CmdUtils:
                 return False
             else:
                 self.io.error_msg(status="CmdUtils", func="interactive()")
+                raise Exception(e)
+
+    def stream_await_subproc(
+        self,
+        cmd_list: list,
+        connect_input=False,  # allows to connect to the the stdin (subprocess.PIPE)
+        get_output=False,  # allows to capture the output (subprocess.PIPE)
+        get_error=False,  # allows to capture the error (subprocess.PIPE)
+        env=None,
+        use_bytes=False,
+        new_session=False,
+        no_exception=False,
+        executable=None,
+    ):
+        print("")
+        try:
+            process = subprocess.Popen(
+                cmd_list,
+                executable=executable,
+                text=not use_bytes,
+                stdin=subprocess.PIPE if connect_input == True else None,
+                stdout=subprocess.PIPE if get_output == True else None,
+                stderr=subprocess.PIPE if get_error == True else None,
+                env=env,
+                start_new_session=new_session,
+                # stdin=sys.stdin if connect_input == True else None,
+                # stdout=sys.stdout if get_output == True else None,
+                # stderr=sys.stderr if get_error == True else None,
+            )
+            subproces_status = None
+            while True:
+                try:
+                    output = process.stdout.readline()
+                    if self._check_end_subproc(output, process):
+                        break
+
+                    if output:
+                        print(output.strip())
+                except:
+                    continue
+            process.wait()
+            return True
+        except Exception as e:
+            if no_exception:
+                self.io.error_msg(
+                    status="CmdUtils", func="stream_await_subproc()", exception=e
+                )
+                return False
+            else:
+                self.io.error_msg(
+                    status="CmdUtils", func="stream_await_subproc()", exception=e
+                )
+                # self.io.error_msg(status="CmdUtils", func="stream_await_subproc()")
                 raise Exception(e)
 
     def call(

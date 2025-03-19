@@ -64,7 +64,6 @@ def get_target_iphone_id():
 
 # - 3.
 def pair_iphone(id):
-
     def handle_auth_error(cmd_output):
         if "Please enter the passcode" in cmd_output:
             PromptUtils.enter_to_continue()
@@ -118,19 +117,22 @@ def prep_backup_dir(backup_name, no_encrypt):
 def run_backup(id, backup_dir, full_backup, no_encryption):
 
     def enable_encryption(id):
+        helper_msg = io._apply_color("(enter passcode after passwords)", "orange")
+        io.start_msg(
+            status="a",
+            message=f"attempting to enable encryption... \n{helper_msg}",
+        )
         cmd = CmdUtils()
-
-        # a)
         command = ["idevicebackup2", "-u", id, "-i", "encryption", "on"]
-        result = cmd.run(command, check=True)
-        # result = result.stdout
-        print(f"ee out: {result.stdout}")
-        print(f"ee err: {result.stderr}")
+        subproc_output = cmd.await_subproc(command, get_output=True)
+        result = io._apply_color(subproc_output, "green")
 
         if "successfully" in result or "already enabled" in result:
-            return
+            return result
         else:
-            io.error_msg(status="3.a", func="")
+            io.error_msg(
+                status="5.a", func="enable_encryption()", message=subproc_output
+            )
             raise Exception()
 
     def determine_backup_flags(full, no_encryption):
@@ -138,26 +140,19 @@ def run_backup(id, backup_dir, full_backup, no_encryption):
         if full:
             flags.append("--full")
 
-        if not no_encryption:
-            flags.append("--encrypt")
+        # if not no_encryption:
+        #     flags.append("--encrypt")
 
         return flags
 
     # a) enable encryption unless no-encrypt flag passed
-    io.start_msg(
-        status="a",
-        message="attempting to enable encryption...",
-        prev_line=True,
-    )
     if not no_encryption:
-        enable_encryption(id)
-        io.done(subfunction=True)
-    else:
-        io.skip_msg()
+        enabled = enable_encryption(id)
+        io.info_msg(enabled, emphasize=True)
 
     # b) add full backup flag if arg passed
     io.start_msg(
-        status="b",
+        status="b" if not no_encrypt else "a",
         message="determining backup flags...",
         prev_line=True,
     )
@@ -166,18 +161,17 @@ def run_backup(id, backup_dir, full_backup, no_encryption):
 
     # c) run backup command --> idevicebackup2 -u <iphone_id> backup --full --encrypt <backup_dir>
     io.start_msg(
-        status="c",
+        status="c" if not no_encrypt else "b",
         message="executing iphone backup...",
         prev_line=True,
     )
     cmd = CmdUtils()
     command = ["idevicebackup2", "-u", id, "backup"] + flags + [backup_dir]
-    result = cmd.run(command)
+    complete = cmd.stream_await_subproc(command, get_output=True)
+    if "Could not perform backup" in complete:
+        return True
 
-    if result.returncode != 0:
-        raise Exception("(5.c) --> backup failed.")
-
-    return
+    raise Exception("backup failed.")
 
 
 # == main
@@ -228,9 +222,8 @@ def backup_iphone_data(no_encryption, full_backup, backup_name):
         func="run_backup()",
         message="backing up iphone data...",
     )
-    run_backup(iphone_id, full_backup, backup_dir, no_encryption)
+    run_backup(iphone_id, backup_dir, full_backup, no_encryption)
     io.done()
-
     io.success_msg(f"iphone data backed up at: {backup_dir}")
 
 
