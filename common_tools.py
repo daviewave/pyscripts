@@ -64,6 +64,11 @@ class IOUtils:
         if not subfunction:
             print("---------\n")
 
+    def skip_msg(self):
+        msg = "skipped."
+        msg = self._apply_color(msg, "green")
+        print(msg)
+
     def warning_msg(
         self,
         message,
@@ -171,6 +176,7 @@ class CmdUtils:
         cmd_list: list,
         use_console=False,
         run_from=None,
+        check=None,
         time_out_after=None,
         env=None,
         input=None,
@@ -183,6 +189,7 @@ class CmdUtils:
                 text=True,
                 capture_output=not use_console,
                 cwd=run_from,
+                check=check,
                 timeout=time_out_after,
                 env=env,
                 input=input,
@@ -230,7 +237,7 @@ class CmdUtils:
     def interactive(
         self,
         cmd_list: list,
-        executable: str,
+        executable=None,
         connect_input=False,  # allows to connect to the the stdin (subprocess.PIPE)
         get_output=False,  # allows to capture the output (subprocess.PIPE)
         get_error=False,  # allows to capture the error (subprocess.PIPE)
@@ -246,8 +253,11 @@ class CmdUtils:
                 cmd_list,
                 executable=executable,
                 text=not use_bytes,
+                # stdin=sys.stdin if connect_input == True else None,
                 stdin=subprocess.PIPE if connect_input == True else None,
+                # stdout=sys.stdout if get_output == True else None,
                 stdout=subprocess.PIPE if get_output == True else None,
+                # stderr=sys.stderr if get_error == True else None,
                 stderr=subprocess.PIPE if get_error == True else None,
                 cwd=run_from,
                 env=env,
@@ -255,13 +265,12 @@ class CmdUtils:
             )
             return process
         except Exception as e:
-            self.io.error_msg(
-                message="run command failed",
-                status="cmd.interactive()",
-                error=e,
-                raise_exception=raise_exception,
-                prompt_continue=prompt_continue,
-            )
+            if no_exception:
+                self.io.error_msg(status="CmdUtils", func="interactive()", exception=e)
+                return False
+            else:
+                self.io.error_msg(status="CmdUtils", func="interactive()")
+                raise Exception(e)
 
     def call(
         self,
@@ -366,7 +375,8 @@ class PromptUtils:
             ):
                 return options[int(uinput) - 1]
 
-    def enter_to_continue(self):
+    @staticmethod
+    def enter_to_continue():
         input("\nPress enter to continue...")
 
     def to_overwrite(self, path):
@@ -430,7 +440,7 @@ class FsUtils:
 
     @staticmethod
     def create_dir(path):
-        os.makedirs(path, exist_ok=True)
+        return os.makedirs(path, exist_ok=True)
 
     def __init__(self):
         self.io = IOUtils()
@@ -446,7 +456,10 @@ class FsUtils:
     def is_valid_dir(self, path):
         return Path(path).is_dir()
 
-    def check_valid_path(
+    def is_empty_dir(dir):
+        return os.listdir(dir) == 0
+
+    def is_valid_path(
         self,
         path,
         strict=["file", "dir"],
@@ -711,7 +724,7 @@ class EnvUtils:
     def validate_deps_installed(self, fp, pkg_mgr, os="mac"):
         # i.
         fs = FsUtils()
-        fs.check_valid_path(fp, strict="file")
+        fs.is_valid_path(fp, strict="file")
         fp = fs.ensure_absolute_path(fp)
         if FileUtils.is_empty_file(fp):
             return False
