@@ -22,6 +22,7 @@ def get_c_code(fp, func):
         io.error_msg(status="1/2", func="get_c_code()")
         raise Exception(e)
 
+
 def prep_output_dir(fp):
     f = FileUtils()
     fs = FsUtils()
@@ -33,15 +34,16 @@ def prep_output_dir(fp):
     results_file = f"{results_dir}/{bin_file}-main-c.c"
     return results_file
 
+
 def extract_c_code(fp, func, json_format):
-    # a) 
+    # a)
     fs = FsUtils()
     fs.is_valid_path(fp, strict="file")
 
-    # b) 
+    # b)
     c_code = get_c_code(fp, func)
 
-    # c) 
+    # c)
     output_fp = prep_output_dir(fp)
 
     # d)
@@ -62,59 +64,63 @@ if __name__ == "__main__":
         help="binary file to examine",
     )
     parser.add_argument(
-        "--func",
-        type=str,
-        required=False,
-        default="main",
-        help="specify a specific function to decompile, only decompiles main by default",
+        "--funcs",
+        type=int,
+        nargs="+",
+        default=None,
+        help="if not passed, returns all functions. if first element is 'i' list all functions found and select the ones of interest or if you already know the functions you want just pass them in list '--funcs func1 func2' format",
     )
     parser.add_argument(
-        "-j",
+        "--r2",
+        action="store_true",
+        default=False,
+        help="add this flag to specify that you want to use radare2. Uses rizin by default (the newer fork of radare2)",
+    )
+    parser.add_argument(
+        "j",
         "--json",
-        type=str,
-        required=False,
-        default="main",
-        help="output c code in json",
+        action="store_true",
+        default=False,
+        help="",
     )
 
     args = parser.parse_args()
     fp = args.file
-    func = args.func
-    json_format = args.json
+    funcs = args.func
+    use_r2 = args.r2
+    json = args.json
 
-    extract_c_code(fp, func, json_format)
+    extract_c_code(fp, funcs, use_r2, json)
 
 
+# === psudo code ===#
 
-#=== psudo code ===#
-
-#-- args --#
+# -- args --#
 # 1. file: str -> required
 # 2. funcs: list -> default=None
 # 3. r2: bool -> default=False
 # 4. json: bool -> default=True
 
-#-- process --#
+# -- process --#
 # 1. call the script to get all functions with use_console=False
-# 
+#
 # 2. determine functions to get c code using the 'funcs' argument:
 #       a) funcs is None or empty --> return all functions c code
-#       
-#       b) len(funcs) == 1 and the 1 item is "i" (for interactive) --> get all functions, and prompt user for   
+#
+#       b) len(funcs) == 1 and the 1 item is "i" (for interactive) --> get all functions, and prompt user for
 #           selections
-#       
+#
 #       c) can assume that the user has passed the names/addresses of the functions they want to get the code for
-#           and only return only those, using the list of functions returned in step 1 to validate the functions 
+#           and only return only those, using the list of functions returned in step 1 to validate the functions
 #           passed in were valid
-# 
+#
 # 3. prep output dir (can use current function with minimal updates)
-# 
-# 4. call the rzpipe or r2pipe 
+#
+# 4. call the rzpipe or r2pipe
 #       --> use rzpipe by default but check if r2 bool arg is passed and use r2pipe if needed !
 
-#-- notes --#
-#- do you want to return all functions c code ?
+# -- notes --#
+# - do you want to return all functions c code ?
 #   --> accept an arg called funcs, a list, that allows the user to only return a specific functions
 #   --> if the user passes in just 1 item of the list called something like 'interactive' or 'choose', then list
-#        all options with the prompt helper i made in helper tools 
-
+#        all options with the prompt helper i made in helper tools
