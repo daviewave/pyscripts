@@ -2,13 +2,21 @@ import argparse, os, sys
 import r2pipe
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
+# sys.path.append(
+#     os.path.abspath(os.path.join(os.path.dirname(__file__), os.environ.get("py")))
+# )
+
 sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), os.environ.get("py")))
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "/home/da/pyscripts"))
 )
+sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
+
 
 from common_tools import IOUtils, FsUtils, FileUtils
 
 io = IOUtils()
+
+from scripts.list_functions import list_functions
 
 
 def get_c_code(fp, func):
@@ -35,22 +43,27 @@ def prep_output_dir(fp):
     return results_file
 
 
-def extract_c_code(fp, func, json_format):
+def extract_c_code(fp, funcs, use_r2, json):
+    # 1.
+    functions = list_functions(fp)
+    print("functions")
+    print(functions)
+
     # a)
-    fs = FsUtils()
-    fs.is_valid_path(fp, strict="file")
+    # fs = FsUtils()
+    # fs.is_valid_path(fp, strict="file")
 
-    # b)
-    c_code = get_c_code(fp, func)
+    # # b)
+    # c_code = get_c_code(fp, funcs)
 
-    # c)
-    output_fp = prep_output_dir(fp)
+    # # c)
+    # output_fp = prep_output_dir(fp)
 
-    # d)
-    f = FileUtils()
-    f.write(output_fp, c_code)
+    # # d)
+    # f = FileUtils()
+    # f.write(output_fp, c_code)
 
-    io.success_msg(f"deassembled '{os.path.basename(fp)}' into C code at: {output_fp}")
+    # io.success_msg(f"deassembled '{os.path.basename(fp)}' into C code at: {output_fp}")
 
 
 if __name__ == "__main__":
@@ -77,7 +90,7 @@ if __name__ == "__main__":
         help="add this flag to specify that you want to use radare2. Uses rizin by default (the newer fork of radare2)",
     )
     parser.add_argument(
-        "j",
+        "-j",
         "--json",
         action="store_true",
         default=False,
@@ -86,7 +99,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     fp = args.file
-    funcs = args.func
+    funcs = args.funcs
     use_r2 = args.r2
     json = args.json
 
