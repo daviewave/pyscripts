@@ -83,3 +83,38 @@ if __name__ == "__main__":
     json_format = args.json
 
     extract_c_code(fp, func, json_format)
+
+
+
+#=== psudo code ===#
+
+#-- args --#
+# 1. file: str -> required
+# 2. funcs: list -> default=None
+# 3. r2: bool -> default=False
+# 4. json: bool -> default=True
+
+#-- process --#
+# 1. call the script to get all functions with use_console=False
+# 
+# 2. determine functions to get c code using the 'funcs' argument:
+#       a) funcs is None or empty --> return all functions c code
+#       
+#       b) len(funcs) == 1 and the 1 item is "i" (for interactive) --> get all functions, and prompt user for   
+#           selections
+#       
+#       c) can assume that the user has passed the names/addresses of the functions they want to get the code for
+#           and only return only those, using the list of functions returned in step 1 to validate the functions 
+#           passed in were valid
+# 
+# 3. prep output dir (can use current function with minimal updates)
+# 
+# 4. call the rzpipe or r2pipe 
+#       --> use rzpipe by default but check if r2 bool arg is passed and use r2pipe if needed !
+
+#-- notes --#
+#- do you want to return all functions c code ?
+#   --> accept an arg called funcs, a list, that allows the user to only return a specific functions
+#   --> if the user passes in just 1 item of the list called something like 'interactive' or 'choose', then list
+#        all options with the prompt helper i made in helper tools 
+
