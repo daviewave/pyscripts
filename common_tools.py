@@ -419,7 +419,7 @@ class PromptUtils:
 
     def _is_valid_input(self, input: str, allowed: list) -> bool:
         if input not in allowed:
-            self.io.error_msg(f"input '{input}' not allowed.")
+            self.io.error_msg(f"input '{input}' not allowed.", func="is_valid_input()")
             return False
         return True
 
@@ -443,17 +443,20 @@ class PromptUtils:
             if not self._is_empty_input(uinput):
                 return uinput
 
-    def list_selection(self, prompt: str, options: list) -> str:
+    def list_selection(self, prompt: str, options: list) -> list:
         while True:
             print(f"{self.io._apply_color(prompt, 'black')}")
             for i, option in enumerate(options):
                 opt_str = f"{i + 1} -> {option}"
                 print(f"{self.io._apply_color(opt_str, 'gray')}")
-            uinput = input("\nEnter number of selection: ")
-            if not self._is_empty_input(uinput) and self._is_valid_input(
-                uinput, [str(i) for i in range(1, len(options) + 1)]
+            uinput = input("\nEnter numbers of selection (comma-separated): ")
+
+            selections = [s.strip() for s in uinput.split(",")]
+            if all(
+                self._is_valid_input(sel, [str(i) for i in range(1, len(options) + 1)])
+                for sel in selections
             ):
-                return options[int(uinput) - 1]
+                return [options[int(sel) - 1] for sel in selections]
 
     @staticmethod
     def enter_to_continue():
