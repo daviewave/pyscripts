@@ -512,6 +512,7 @@ class PdfUtils:
         self.cmd.run(cmd, use_console=True, check=True)
 
 
+
 class FsUtils:
     @staticmethod
     def remove_dir(dir):
@@ -883,10 +884,10 @@ class FileUtils:
     def __init__(self):
         self.io = IOUtils()
 
-    def open(self, fp, file_type="txt", return_type="lines", no_exception=False):
+    def open(self, fp, file_type="txt", open_type="r", return_type="lines", no_exception=False):
         try:
             with open(fp, "r") as f:
-                if file_type = "json":
+                if file_type == "json":
                     import json
                     data = json.load(f)
                 else:
@@ -896,7 +897,7 @@ class FileUtils:
                 if not data:
                     return "empty"
                 
-                return file_content
+                return data
 
         except Exception as e:
             if no_exception:
@@ -912,6 +913,7 @@ class FileUtils:
         try:
             with open(fp, "w") as f:
                 if file_type == "json":
+                    import json
                     json.dump(f, content, indent=4)
                 else:
                     if type(content) == list:
@@ -930,6 +932,27 @@ class FileUtils:
             else:
                 self.io.error_msg(status="FileUtils", func="write()")
                 raise Exception(e)
+
+    def get_extension(self, fp):
+        from pathlib import Path
+        exstension = Path(fp).suffix
+        return exstension.lstrip(".")
+
+    def get_hash(self, fp, sha="256"):
+        import hashlib
+        hash_obj = None
+        if sha == "512":
+            hash_obj = hashlib.sha3_512()
+        else:
+            hash_obj = hashlib.sha3_256()
+                
+        with open(fp, "rb") as f:
+            for byte_block in iter(lambda: f.read(65536), b""):
+                hash_obj.update(byte_block)
+        
+        return hash_obj.hexdigest()
+            
+        
 
     @staticmethod
     def is_empty_file(fp):
