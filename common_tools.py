@@ -883,20 +883,20 @@ class FileUtils:
     def __init__(self):
         self.io = IOUtils()
 
-    def open(self, fp, mode="r", return_type="lines", no_exception=False):
+    def open(self, fp, file_type="txt", return_type="lines", no_exception=False):
         try:
-            with open(fp, mode) as f:
-                file_content = f.read()
-
-                if not file_content:
-                    return "empty"
-
-                if return_type == "lines":
-                    lines = file_content.splitlines()
-                    return lines
-
+            with open(fp, "r") as f:
+                if file_type = "json":
+                    import json
+                    data = json.load(f)
                 else:
-                    return file_content
+                    data = f.read()
+                    data = data.splitlines()
+                
+                if not data:
+                    return "empty"
+                
+                return file_content
 
         except Exception as e:
             if no_exception:
