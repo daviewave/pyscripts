@@ -908,13 +908,16 @@ class FileUtils:
                 self.io.error_msg(status="FileUtils", func="open()")
                 raise Exception(e)
 
-    def write(self, fp, content, no_exception=False):
+    def write(self, fp, content, file_type="txt", no_exception=False):
         try:
             with open(fp, "w") as f:
-                if isinstance(content, list):
-                    f.writelines("\n".join(content) + "\n") 
+                if file_type == "json":
+                    json.dump(f, content, indent=4)
                 else:
-                    f.write(content)
+                    if type(content) == list:
+                        f.writelines("\n".join(content) + "\n") 
+                    else:
+                        f.write(content)
 
             return True
 
