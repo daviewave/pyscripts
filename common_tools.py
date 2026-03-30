@@ -507,10 +507,58 @@ class PdfUtils:
     def __init__(self):
         self.cmd = CmdUtils()
 
+    def open(self, fp):
+        try:
+            with open(fp, 'rb') as f:
+                return f
+        except Exception as e:
+            raise Exception(e)
+
     def check_digital_signature(self, pdf_path):
         cmd = ["pdfsig", pdf_path]
         self.cmd.run(cmd, use_console=True, check=True)
 
+    def extract_text(self, fp, print_result=True):
+        from io import BytesIO, StringIO
+        from pdfminer.converter import TextConverter
+        from pdfminer.layout import LAParams
+        from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+        from pdfminer.pdfpage import PDFPage
+
+        # 1, open pdf to store byte stream
+        try:
+            with open(fp, 'rb') as f:
+                byte_data = f.read()
+        except Exception as e:
+            raise Exception(e)
+        
+        # 2, create class objects used to convert text
+        byte_stream = BytesIO(byte_data)
+        string_mgr = StringIO()
+        resource_mgr = PDFResourceManager()
+        pdf_converter = TextConverter(resource_mgr, string_mgr, laparams=LAParams())
+        pdf_interpreter = PDFPageInterpreter(resource_mgr, pdf_converter)
+
+        # 3, process each page of pdf
+        try:
+            for page in PDFPage.get_pages(byte_stream):
+                pdf_interpreter.process_page(page)
+        except Exception as e:
+            raise Exception(e)
+        
+        # extract text
+        text = string_mgr.getvalue()
+        pdf_converter.close()
+        string_mgr.close()
+        
+        # clean text
+        text = text.split('\n')
+        cleaned_text = [string.strip() for string in text if string.strip() != '']
+        cleaned_text = ' '.join(cleaned_text)
+        if print_result:
+            print(cleaned_text)
+        return cleaned_text
+        
 
 
 class FsUtils:
@@ -952,12 +1000,8 @@ class FileUtils:
         
         return hash_obj.hexdigest()
             
-        
-
-    @staticmethod
-    def is_empty_file(fp):
-        f = FileUtils()
-        if f.open(fp) == "empty":
+    def is_empty_file(self, fp):
+        if self.open(fp) == "empty":
             return True
         else:
             return False
