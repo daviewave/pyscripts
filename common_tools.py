@@ -218,11 +218,10 @@ class CmdUtils:
 
             result = subprocess.run(
                 secured_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                capture_output=not use_console,
-                cwd=run_from,
-                timeout=time_out_after,
-                env=env,
+                check=True,
             )
             return self.build_result_tuple(result)
         except Exception as e:
@@ -445,10 +444,11 @@ class PromptUtils:
 
     def list_selection(self, prompt: str, options: list) -> list:
         while True:
-            print(f"{self.io._apply_color(prompt, 'black')}")
+            print()
+            print(prompt)
             for i, option in enumerate(options):
                 opt_str = f"{i + 1} -> {option}"
-                print(f"{self.io._apply_color(opt_str, 'gray')}")
+                print(f"{self.io._apply_color(opt_str, 'lpurple')}")
             uinput = input("\nEnter numbers of selection (comma-separated): ")
 
             selections = [s.strip() for s in uinput.split(",")]
@@ -506,13 +506,7 @@ class PromptUtils:
 class PdfUtils:
     def __init__(self):
         self.cmd = CmdUtils()
-
-    def open(self, fp):
-        try:
-            with open(fp, 'rb') as f:
-                return f
-        except Exception as e:
-            raise Exception(e)
+        self.ai = AiUtils()
 
     def check_digital_signature(self, pdf_path):
         cmd = ["pdfsig", pdf_path]
@@ -546,19 +540,24 @@ class PdfUtils:
         except Exception as e:
             raise Exception(e)
         
-        # extract text
+        # 4, extract text
         text = string_mgr.getvalue()
+        
+        # 5, close class object helpers
         pdf_converter.close()
         string_mgr.close()
+        byte_stream.close()
+
         
-        # clean text
+        # 6, clean text
         text = text.split('\n')
         cleaned_text = [string.strip() for string in text if string.strip() != '']
         cleaned_text = ' '.join(cleaned_text)
         if print_result:
             print(cleaned_text)
         return cleaned_text
-        
+
+
 
 
 class FsUtils:
@@ -1005,3 +1004,40 @@ class FileUtils:
             return True
         else:
             return False
+
+
+
+class AiUtils:
+
+    def __init__(self, selected_model='Meta-Llama-3-8B-Instruct.Q4_0.gguf'):
+        from gpt4all import GPT4All
+
+        self.gpt4all = GPT4All
+        self.cmd = CmdUtils()
+        self.prompt = PromptUtils()
+        self.model = selected_model
+
+    def get_available_models(self):
+        models = self.gpt4all.list_models()
+        model_names = [model.get('filename') for model in models]
+        return model_names
+
+    def list_models(self):
+        models = self.get_available_models()
+        for model in models:
+            print(f'-> {model}')
+    
+    def choose_model(self):
+        models = self.get_available_models()
+        selection = self.prompt.list_selection("available models: ", models)
+        print(f"selected model: {selection[0]}")
+        self.model = selection[0]
+
+    def query(self, prompt, interactive=False):
+        if interactive:
+            self.choose_model()
+
+        GPT4All = self.gpt4all
+        model = GPT4All(self.model)
+        with model.chat_session():
+            print(model.generate(prompt, max_tokens=1024))
